@@ -33,7 +33,7 @@ void ApplicationLayer::OnUIRender()
 
     if (m_Texture)
     {
-        ImGui::Image(reinterpret_cast<void*>(m_Texture), ImVec2(static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight)));
+        ImGui::Image(reinterpret_cast<ImTextureID>(m_Texture), ImVec2(static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight)));
 
         for (const auto& rect : m_Selections)
         {

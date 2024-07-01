@@ -3,6 +3,10 @@
 
 #include "ImageUtility.h"
 
+#if defined(_WIN32)
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+
 
 // Simple helper function to load an image into a OpenGL texture with common settings
 bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height)
