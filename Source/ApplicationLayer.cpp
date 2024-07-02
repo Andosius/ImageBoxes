@@ -7,6 +7,14 @@
 #include "Application.h"
 
 
+struct Rectangle
+{
+    ImVec2 TopLeft;
+    ImVec2 BottomRight;
+    std::string Text;
+};
+
+
 bool IsScrollbarActive();
 
 
@@ -28,12 +36,12 @@ void ApplicationLayer::OnUIRender()
 {
     ImGui::SetNextWindowContentSize(ImVec2{ static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight) });
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("Image", NULL, ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    ImGui::Begin("Image", nullptr, ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
     ImGui::PopStyleVar();
 
     if (m_Texture)
     {
-        ImGui::Image(reinterpret_cast<ImTextureID>(m_Texture), ImVec2(static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight)));
+        ImGui::Image((ImTextureID)(intptr_t)m_Texture, ImVec2(static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight)));
 
         for (const auto& rect : m_Selections)
         {
@@ -43,8 +51,8 @@ void ApplicationLayer::OnUIRender()
             float x_scroll = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
             float y_scroll = ImGui::GetScrollY() / ImGui::GetScrollMaxY();
 
-            ImVec2 p1 = { rect.p1.x + win_pos.x - x_scroll, rect.p1.y + win_pos.y - y_scroll };
-            ImVec2 p2 = { rect.p2.x + win_pos.x - x_scroll, rect.p2.y + win_pos.y - y_scroll };
+            ImVec2 p1 = { rect.TopLeft.x + win_pos.x - x_scroll, rect.TopLeft.y + win_pos.y - y_scroll };
+            ImVec2 p2 = { rect.BottomRight.x + win_pos.x - x_scroll, rect.BottomRight.y + win_pos.y - y_scroll };
 
             ImGui::GetForegroundDrawList()
                 ->AddRectFilled(p1, p2, ImColor(255, 0, 255, 60));
@@ -145,7 +153,7 @@ void ApplicationLayer::CaptureRectangle()
     p2.x += x_scroll;
     p2.y += y_scroll;
 
-    m_Selections.emplace_back(Rectangle{p1, p2});
+    m_Selections.emplace_back(Rectangle{p1, p2, ""});
 }
 
 bool IsScrollbarActive()

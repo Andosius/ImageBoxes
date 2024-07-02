@@ -8,11 +8,7 @@
 #include "Layer.h"
 
 
-struct Rectangle
-{
-    ImVec2 p1;
-    ImVec2 p2;
-};
+struct Rectangle;
 
 
 class ApplicationLayer : public IB::Layer
