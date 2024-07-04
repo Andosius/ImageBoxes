@@ -4,11 +4,16 @@
 #include <string>
 
 #include <GLFW/glfw3.h>
+#include "imgui_internal.h"
 
 #include "Layer.h"
 
 
-struct Rectangle;
+struct Rectangle
+{
+    ImVec2 TopLeft;
+    ImVec2 BottomRight;
+};
 
 
 class ApplicationLayer : public IB::Layer
@@ -21,6 +26,8 @@ public:
     void OnUIRender() override;
 
 private:
+    void DrawRectangles(ImRect& inner_rect);
+
     std::string OpenImageFileDialog();
     void CaptureRectangle();
 

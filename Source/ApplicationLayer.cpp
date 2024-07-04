@@ -1,3 +1,6 @@
+#include <string>
+#include <iostream>
+
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "nfd_glfw3.h"
@@ -7,15 +10,7 @@
 #include "Application.h"
 
 
-struct Rectangle
-{
-    ImVec2 TopLeft;
-    ImVec2 BottomRight;
-    std::string Text;
-};
-
-
-bool IsScrollbarActive();
+bool IsInsideWindow(ImVec2& mouse, ImVec2& win_pos, ImVec2& size);
 
 
 void ApplicationLayer::OnAttach()
@@ -29,74 +24,117 @@ void ApplicationLayer::OnDetach()
 
 void ApplicationLayer::OnUpdate(float ts)
 {
-    
+
 }
 
 void ApplicationLayer::OnUIRender() 
 {
+    ImGui::ShowDemoWindow();
+
+    // Image Start
     ImGui::SetNextWindowContentSize(ImVec2{ static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight) });
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin("Image", nullptr, ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
     ImGui::PopStyleVar();
 
-    if (m_Texture)
     {
-        ImGui::Image((ImTextureID)(intptr_t)m_Texture, ImVec2(static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight)));
-
-        for (const auto& rect : m_Selections)
+        if (m_Texture)
         {
-            // Reapply window position and scroll position to the relative coords
-            ImVec2 win_pos = ImGui::GetCursorScreenPos();
+            ImVec2 cursor = ImGui::GetCursorPos();
+            
+            ImGui::Image(reinterpret_cast<ImTextureID>(m_Texture), ImVec2(m_ImageWidth, m_ImageHeight));
+            
+            ImGui::SetCursorPos(cursor);
+            ImGui::InvisibleButton("canvas", ImVec2(m_ImageWidth, m_ImageHeight), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
 
-            float x_scroll = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
-            float y_scroll = ImGui::GetScrollY() / ImGui::GetScrollMaxY();
+            ImRect rect = ImGui::GetCurrentWindow()->InnerRect;
+            ImVec2 window_pos = ImGui::GetWindowPos();
+            ImVec2 window_size = rect.GetSize();
 
-            ImVec2 p1 = { rect.TopLeft.x + win_pos.x - x_scroll, rect.TopLeft.y + win_pos.y - y_scroll };
-            ImVec2 p2 = { rect.BottomRight.x + win_pos.x - x_scroll, rect.BottomRight.y + win_pos.y - y_scroll };
+            DrawRectangles(rect);
 
-            ImGui::GetForegroundDrawList()
-                ->AddRectFilled(p1, p2, ImColor(255, 0, 255, 60));
-        }
+            ImGuiIO& io = ImGui::GetIO();
 
-        if (ImGui::IsMouseDragging(ImGuiMouseButton_Left))
-        {
-            if (!m_IsDragging && !IsScrollbarActive())
-                m_IsDragging = true;
-
-            if (!IsScrollbarActive())
+            if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left) && IsInsideWindow(io.MousePos, window_pos, window_size))
             {
-                ImGuiIO& io = ImGui::GetIO();
+                if (!m_IsDragging)
+                {
+                    m_IsDragging = true;
+                }
+
                 ImGui::GetForegroundDrawList()->AddRect(io.MouseClickedPos[0], io.MousePos, ImGui::GetColorU32(ImGuiCol_Button), 0.0f, ImDrawFlags_None, 2.0f);
+            }
+            else
+            {
+                if (m_IsDragging && IsInsideWindow(io.MousePos, window_pos, window_size) && !ImGui::IsKeyDown(ImGuiKey_Escape))
+                {
+                    CaptureRectangle();
+                }
+                else
+                {
+                    m_IsDragging = false;
+                }
+            }
+        }
+    }
+
+    ImGui::End();
+    // Image End
+
+    // Workspace Start
+    ImGui::Begin("Workspace", nullptr, ImGuiWindowFlags_None);
+
+    {
+        if (!m_Texture)
+        {
+            if (ImGui::Button("Open File"))
+            {
+                OpenImageFileDialog();
+            }
+
+            if (ImGui::Button("Test File (Linux)"))
+            {
+                LoadTextureFromFile("/home/andosius/Desktop/PDF2IMG/converted/2023_9_1.jpeg", &m_Texture, &m_ImageWidth, &m_ImageHeight);
             }
         }
         else
         {
-            if (m_IsDragging)
+            for (const auto& rect : m_Selections)
             {
-                CaptureRectangle();
+                ImGui::Text("Rectangle [AT] %.1f, %.1f", rect.TopLeft.x, rect.TopLeft.y);
+                ImGui::Text("Rectangle [TO] %.1f, %.1f", rect.BottomRight.x, rect.BottomRight.y);
+                ImGui::Separator();
             }
-        }
-    }
-    ImGui::End();
+            ImGui::Text("Das hier wird bald aufgefüllt!");
+        }   
+    } 
 
-    ImGui::Begin("Workspace");
-    if (!m_Texture)
-    {
-        if (ImGui::Button("Open File"))
-        {
-            OpenImageFileDialog();
-        }
-
-        if (ImGui::Button("Last File"))
-        {
-            LoadTextureFromFile("/home/andosius/Desktop/PDF2IMG/converted/2023_9_1.jpeg", &m_Texture, &m_ImageWidth, &m_ImageHeight);
-        }
-    }
-    else
-    {
-        ImGui::Text("Das hier wird bald aufgefüllt!");
-    }
     ImGui::End();
+    // Workspace End
+}
+
+void ApplicationLayer::DrawRectangles(ImRect& inner_rect)
+{
+    ImVec2 window_pos = ImGui::GetWindowPos();
+    ImVec2 window_size = inner_rect.GetSize();
+
+    float max_x = window_pos.x + window_size.x;
+    float max_y = window_pos.y + window_size.y;
+
+    for (const auto& rect : m_Selections)
+    {
+        // Reapply window position and scroll position to the relative coords
+        ImVec2 win_pos = ImGui::GetCursorScreenPos();
+
+        float x_scroll = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
+        float y_scroll = ImGui::GetScrollY() / ImGui::GetScrollMaxY();
+
+        ImVec2 p1 = { std::min(rect.TopLeft.x + win_pos.x - x_scroll, max_x), std::min(rect.TopLeft.y + win_pos.y - y_scroll, max_y) };
+        ImVec2 p2 = { std::min(rect.BottomRight.x + win_pos.x - x_scroll, max_x), std::min(rect.BottomRight.y + win_pos.y - y_scroll, max_y) };
+
+        ImGui::GetForegroundDrawList()
+            ->AddRectFilled(p1, p2, ImColor(255, 0, 255, 60));
+    }
 }
 
 std::string ApplicationLayer::OpenImageFileDialog()
@@ -153,15 +191,11 @@ void ApplicationLayer::CaptureRectangle()
     p2.x += x_scroll;
     p2.y += y_scroll;
 
-    m_Selections.emplace_back(Rectangle{p1, p2, ""});
+    m_Selections.emplace_back(Rectangle{p1, p2});
 }
 
-bool IsScrollbarActive()
+bool IsInsideWindow(ImVec2& mouse, ImVec2& win_pos, ImVec2& size)
 {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
-    ImGuiID active_id = ImGui::GetActiveID();
-
-    return
-        active_id && (active_id == ImGui::GetWindowScrollbarID(window, ImGuiAxis_X) || 
-        active_id == ImGui::GetWindowScrollbarID(window, ImGuiAxis_Y));
+    return mouse.x >= win_pos.x && mouse.x <= win_pos.x + size.x &&
+            mouse.y >= win_pos.y && mouse.y <= win_pos.y + size.y;
 }
