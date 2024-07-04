@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+#include <cstddef>
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -97,15 +98,30 @@ void ApplicationLayer::OnUIRender()
                 LoadTextureFromFile("/home/andosius/Desktop/PDF2IMG/converted/2023_9_1.jpeg", &m_Texture, &m_ImageWidth, &m_ImageHeight);
             }
         }
-        else
+        else // For future reference: std::iter_swap(v.begin() + first_target, v.begin() + second_target) swaps positions. Useful for realigning elements
         {
-            for (const auto& rect : m_Selections)
+            for (std::vector<Rectangle>::iterator it = m_Selections.begin(); it != m_Selections.end();)
             {
-                ImGui::Text("Rectangle [AT] %.1f, %.1f", rect.TopLeft.x, rect.TopLeft.y);
-                ImGui::Text("Rectangle [TO] %.1f, %.1f", rect.BottomRight.x, rect.BottomRight.y);
+                int idx = std::distance(m_Selections.begin(), it);
+            
+                ImGui::PushID(idx);
+
+                ImGui::Text("Rectangle @((%.1f, %.1f), (%.1f, %.1f))", it->TopLeft.x, it->TopLeft.y, it->BottomRight.x, it->BottomRight.y);
+                ImGui::SameLine();
+                
+                if (ImGui::Button("Delete"))
+                {
+                    it = m_Selections.erase(it);
+                    ImGui::PopID();
+                    continue;
+                }
+
                 ImGui::Separator();
+
+                ImGui::PopID();
+
+                it++;
             }
-            ImGui::Text("Das hier wird bald aufgefüllt!");
         }   
     } 
 
@@ -143,7 +159,7 @@ std::string ApplicationLayer::OpenImageFileDialog()
     NFD_Init();
 
     nfdu8char_t* file_path;
-    nfdu8filteritem_t filter[1] = {{"JPEG Image File", "jpg,jpeg"}};
+    nfdu8filteritem_t filter[1] = {{"Image File", "jpg,jpeg,png"}};
     nfdopendialogu8args_t args = {0};
     args.filterList = filter;
     args.filterCount = 1;
