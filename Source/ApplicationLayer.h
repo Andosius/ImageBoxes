@@ -34,10 +34,11 @@ private:
 private:
     int m_ImageWidth = 0;
     int m_ImageHeight = 0;
+
     GLuint m_Texture = 0;
 
     bool m_IsDragging = false;
-    ImVec2 m_MouseDownPosition = ImVec2(-FLT_MAX, -FLT_MAX);
+
     std::vector<Rectangle> m_Selections = std::vector<Rectangle>();
     std::size_t m_SelectedIdx = 0;
 };

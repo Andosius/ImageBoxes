@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstddef>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "nfd.h"
@@ -15,13 +16,23 @@
 bool IsInsideWindow(ImVec2& mouse, ImVec2& win_pos, ImVec2& size);
 
 
+static std::ostream& operator<<(std::ostream& os, const Rectangle& a)
+{
+    return os << "TopLeft{" << a.TopLeft.x << ", " << a.TopLeft.y << "}, BottomRight{" << a.BottomRight.x << ", " << a.BottomRight.y << "}";
+}
+
+static std::ostream& operator<<(std::ostream& os, const ImVec2& a)
+{
+    return os << "ImVec2{" << a.x << ", " << a.y << "}";
+}
+
+
 void ApplicationLayer::OnAttach()
 {
 }
 
 void ApplicationLayer::OnDetach()
 {
-
 }
 
 void ApplicationLayer::OnUpdate(float)
@@ -104,6 +115,11 @@ void ApplicationLayer::OnUIRender()
             {
                 LoadTextureFromFile("C:\\Users\\Ando\\Desktop\\StudentNTP_Ben-McCarty_x1280.jpg", &m_Texture, &m_ImageWidth, &m_ImageHeight);
             }
+
+            if (ImGui::Button("Test File Debug (Windows)"))
+            {
+                LoadTextureFromFile("C:\\Users\\Ando\\Desktop\\HDD-Normalisierung.png", &m_Texture, &m_ImageWidth, &m_ImageHeight);
+            }
         }
         else
         {
@@ -115,7 +131,7 @@ void ApplicationLayer::OnUIRender()
 
                     // Add selectable element
                     std::string text = fmt::format("(({:1f}, {:1f}), ({:1f}, {:1f}))", rectangle.TopLeft.x, rectangle.TopLeft.y, rectangle.BottomRight.x, rectangle.BottomRight.y);
-                    
+
                     if (ImGui::Selectable(text.c_str(), m_SelectedIdx == idx))
                     {
                         m_SelectedIdx = idx;
@@ -221,33 +237,31 @@ void ApplicationLayer::CaptureRectangle()
 {
     m_IsDragging = false;
 
-    // Get mouse position and move position to window space
-    ImVec2 mouse_pos = ImGui::GetMousePos();
-    ImVec2 win_pos = ImGui::GetCursorScreenPos();
-
-    ImVec2 target = { mouse_pos.x - win_pos.x, mouse_pos.y - win_pos.y };
-
-    // Get the origin by removing the mouse difference
-    ImVec2 move_mouse_diff = ImGui::GetMouseDragDelta(0);
-    ImVec2 origin = { target.x - move_mouse_diff.x, target.y - move_mouse_diff.y };
-
-    // Get top left and bottom right positions
-
-    ImVec2 p1 = ImVec2(std::min(target.x, origin.x), std::min(target.y, origin.y));
-    ImVec2 p2 = ImVec2(std::max(target.x, origin.x), std::max(target.y, origin.y));
+    ImVec2 release_pos = ImGui::GetMousePos();
 
     // Add the scroll to the points so we don't render on the very top only
     float x_scroll = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
     float y_scroll = ImGui::GetScrollY() / ImGui::GetScrollMaxY();
 
-    p1.x += x_scroll;
-    p1.y += y_scroll;
+    release_pos.x += x_scroll;
+    release_pos.y += y_scroll;
 
-    p2.x += x_scroll;
-    p2.y += y_scroll;
+    // Get drag delta
+    ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+
+    // Set point locations
+    ImVec2 p1 = ImVec2(std::min(release_pos.x, release_pos.x - drag_delta.x), std::min(release_pos.y, release_pos.y - drag_delta.y));
+    ImVec2 p2 = ImVec2(std::max(release_pos.x, release_pos.x - drag_delta.x), std::max(release_pos.y, release_pos.y - drag_delta.y));
+
+    ImVec2 win_pos = ImGui::GetCursorScreenPos();
+
+    // Move positions to relative window positions
+    p1 -= win_pos;
+    p2 -= win_pos;
+
+    std::cout << "release_pos: " << release_pos << " | drag_delta: " << drag_delta << " | p1: " << p1 << " | p2: " << p2 << std::endl;
 
     m_Selections.emplace_back(Rectangle{ p1, p2 });
-
     m_SelectedIdx = m_Selections.size();
 }
 
