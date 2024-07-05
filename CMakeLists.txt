@@ -6,7 +6,6 @@ project(ImageBoxes)
 set(EXE_NAME "Image2Boxes")
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wformat")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 
 # Set output directory
@@ -46,10 +45,17 @@ add_subdirectory(Dependencies/nativefiledialog-extended)
 # Find OpenGL
 find_package(OpenGL REQUIRED)
 
+# Add compile options
+if (MSVC)
+	add_compile_options(/W4)
+else()
+	add_compile_options(-g -Wall -Wformat)
+endif()
+
 # Generate executable program
 add_executable(${EXE_NAME} ${SOURCE_FILES} ${IMGUI_FILES})
 
 target_link_libraries(${EXE_NAME} PUBLIC glfw OpenGL::GL nfd)
 
 # Set Visual Studio startup project
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ImageBoxes)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${EXE_NAME})
