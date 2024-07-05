@@ -13,7 +13,6 @@ struct Rectangle
 {
     ImVec2 TopLeft;
     ImVec2 BottomRight;
-    bool Selected = false;
 };
 
 
@@ -40,4 +39,5 @@ private:
     bool m_IsDragging = false;
     ImVec2 m_MouseDownPosition = ImVec2(-FLT_MAX, -FLT_MAX);
     std::vector<Rectangle> m_Selections = std::vector<Rectangle>();
+    std::size_t m_SelectedIdx = 0;
 };

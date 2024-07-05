@@ -4,7 +4,7 @@
 
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "nfd_glfw3.h"
+#include "nfd.h"
 #include "fmt/format.h"
 
 #include "ApplicationLayer.h"
@@ -24,17 +24,18 @@ void ApplicationLayer::OnDetach()
 
 }
 
-void ApplicationLayer::OnUpdate(float ts)
+void ApplicationLayer::OnUpdate(float)
 {
-
 }
 
 void ApplicationLayer::OnUIRender()
 {
     ImGui::ShowDemoWindow();
 
+    ImVec2 img_size(static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight));
+
     // Image Start
-    ImGui::SetNextWindowContentSize(ImVec2{ static_cast<float>(m_ImageWidth), static_cast<float>(m_ImageHeight) });
+    ImGui::SetNextWindowContentSize(img_size);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin("Image", nullptr, ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
     ImGui::PopStyleVar();
@@ -44,10 +45,10 @@ void ApplicationLayer::OnUIRender()
         {
             ImVec2 cursor = ImGui::GetCursorPos();
 
-            ImGui::Image(reinterpret_cast<ImTextureID>(m_Texture), ImVec2(m_ImageWidth, m_ImageHeight));
+            ImGui::Image(reinterpret_cast<void*>(m_Texture), img_size);
 
             ImGui::SetCursorPos(cursor);
-            ImGui::InvisibleButton("canvas", ImVec2(m_ImageWidth, m_ImageHeight), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+            ImGui::InvisibleButton("canvas", img_size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
 
             ImRect rect = ImGui::GetCurrentWindow()->InnerRect;
             ImVec2 window_pos = ImGui::GetWindowPos();
@@ -98,20 +99,27 @@ void ApplicationLayer::OnUIRender()
             {
                 LoadTextureFromFile("/home/andosius/Desktop/PDF2IMG/converted/2023_9_1.jpeg", &m_Texture, &m_ImageWidth, &m_ImageHeight);
             }
+
+            if (ImGui::Button("Test File (Windows)"))
+            {
+                LoadTextureFromFile("C:\\Users\\Ando\\Desktop\\StudentNTP_Ben-McCarty_x1280.jpg", &m_Texture, &m_ImageWidth, &m_ImageHeight);
+            }
         }
         else
         {
-            if (ImGui::TreeNode("Markierte Stellen"))
+            if (ImGui::TreeNodeEx("Markierte Stellen", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                for (size_t idx = 0; idx < m_Selections.size(); idx++)
+                for (std::size_t idx = 0; idx < m_Selections.size(); idx++)
                 {
-                    ImGui::PushID(idx);
-
                     Rectangle& rectangle = m_Selections[idx];
 
                     // Add selectable element
                     std::string text = fmt::format("(({:1f}, {:1f}), ({:1f}, {:1f}))", rectangle.TopLeft.x, rectangle.TopLeft.y, rectangle.BottomRight.x, rectangle.BottomRight.y);
-                    ImGui::Selectable(text.c_str(), &rectangle.Selected);
+                    
+                    if (ImGui::Selectable(text.c_str(), m_SelectedIdx == idx))
+                    {
+                        m_SelectedIdx = idx;
+                    }
 
                     // Check for movement
                     if (ImGui::IsItemActive() && !ImGui::IsItemHovered())
@@ -120,7 +128,7 @@ void ApplicationLayer::OnUIRender()
 
                         if (delta_y != 0.0f)
                         {
-                            int next = idx + (delta_y < 0.0f ? -1 : 1);
+                            std::size_t next = idx + (delta_y < 0.0f ? -1 : 1);
 
                             if (next >= 0 && next < m_Selections.size())
                             {
@@ -128,14 +136,22 @@ void ApplicationLayer::OnUIRender()
 
                                 m_Selections.erase(m_Selections.begin() + idx);
                                 m_Selections.insert(m_Selections.begin() + next, std::move(r));
+
+                                // Reset mouse delta so we can drag over multiple entries
+                                ImGui::ResetMouseDragDelta();
                             }
                         }
                     }
-
-                    ImGui::PopID();
                 }
 
                 ImGui::TreePop();
+            }
+
+            // Check for active entities we plan to delete and erase them from the vector
+            if (ImGui::IsKeyDown(ImGuiKey_Delete) && m_SelectedIdx != m_Selections.size())
+            {
+                m_Selections.erase(m_Selections.begin() + m_SelectedIdx);
+                m_SelectedIdx = m_Selections.size();
             }
         }
     }
@@ -152,8 +168,9 @@ void ApplicationLayer::DrawRectangles(ImRect& inner_rect)
     float max_x = window_pos.x + window_size.x;
     float max_y = window_pos.y + window_size.y;
 
-    for (const auto& rect : m_Selections)
+    for (std::size_t i = 0; i < m_Selections.size(); i++)
     {
+        const auto& rect = m_Selections[i];
         // Reapply window position and scroll position to the relative coords
         ImVec2 win_pos = ImGui::GetCursorScreenPos();
 
@@ -163,7 +180,7 @@ void ApplicationLayer::DrawRectangles(ImRect& inner_rect)
         ImVec2 p1 = { std::min(rect.TopLeft.x + win_pos.x - x_scroll, max_x), std::min(rect.TopLeft.y + win_pos.y - y_scroll, max_y) };
         ImVec2 p2 = { std::min(rect.BottomRight.x + win_pos.x - x_scroll, max_x), std::min(rect.BottomRight.y + win_pos.y - y_scroll, max_y) };
 
-        if (rect.Selected)
+        if (i == m_SelectedIdx)
         {
             ImGui::GetForegroundDrawList()
                 ->AddRectFilled(p1, p2, ImColor(255, 0, 255, 60));
@@ -186,7 +203,6 @@ std::string ApplicationLayer::OpenImageFileDialog()
     nfdopendialogu8args_t args = { 0 };
     args.filterList = filter;
     args.filterCount = 1;
-    NFD_GetNativeWindowFromGLFWWindow(IB::Application::Get().GetWindowHandle(), &args.parentWindow);
     nfdresult_t result = NFD_OpenDialogU8_With(&file_path, &args);
 
     if (result == NFD_OKAY)
@@ -231,6 +247,8 @@ void ApplicationLayer::CaptureRectangle()
     p2.y += y_scroll;
 
     m_Selections.emplace_back(Rectangle{ p1, p2 });
+
+    m_SelectedIdx = m_Selections.size();
 }
 
 bool IsInsideWindow(ImVec2& mouse, ImVec2& win_pos, ImVec2& size)
