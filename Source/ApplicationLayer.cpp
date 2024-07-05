@@ -5,6 +5,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "nfd_glfw3.h"
+#include "fmt/format.h"
 
 #include "ApplicationLayer.h"
 #include "ImageUtility.h"
@@ -18,7 +19,7 @@ void ApplicationLayer::OnAttach()
 {
 }
 
-void ApplicationLayer::OnDetach() 
+void ApplicationLayer::OnDetach()
 {
 
 }
@@ -28,7 +29,7 @@ void ApplicationLayer::OnUpdate(float ts)
 
 }
 
-void ApplicationLayer::OnUIRender() 
+void ApplicationLayer::OnUIRender()
 {
     ImGui::ShowDemoWindow();
 
@@ -42,9 +43,9 @@ void ApplicationLayer::OnUIRender()
         if (m_Texture)
         {
             ImVec2 cursor = ImGui::GetCursorPos();
-            
+
             ImGui::Image(reinterpret_cast<ImTextureID>(m_Texture), ImVec2(m_ImageWidth, m_ImageHeight));
-            
+
             ImGui::SetCursorPos(cursor);
             ImGui::InvisibleButton("canvas", ImVec2(m_ImageWidth, m_ImageHeight), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
 
@@ -98,32 +99,46 @@ void ApplicationLayer::OnUIRender()
                 LoadTextureFromFile("/home/andosius/Desktop/PDF2IMG/converted/2023_9_1.jpeg", &m_Texture, &m_ImageWidth, &m_ImageHeight);
             }
         }
-        else // For future reference: std::iter_swap(v.begin() + first_target, v.begin() + second_target) swaps positions. Useful for realigning elements
+        else
         {
-            for (std::vector<Rectangle>::iterator it = m_Selections.begin(); it != m_Selections.end();)
+            if (ImGui::TreeNode("Markierte Stellen"))
             {
-                int idx = std::distance(m_Selections.begin(), it);
-            
-                ImGui::PushID(idx);
-
-                ImGui::Text("Rectangle @((%.1f, %.1f), (%.1f, %.1f))", it->TopLeft.x, it->TopLeft.y, it->BottomRight.x, it->BottomRight.y);
-                ImGui::SameLine();
-                
-                if (ImGui::Button("Delete"))
+                for (size_t idx = 0; idx < m_Selections.size(); idx++)
                 {
-                    it = m_Selections.erase(it);
+                    ImGui::PushID(idx);
+
+                    Rectangle& rectangle = m_Selections[idx];
+
+                    // Add selectable element
+                    std::string text = fmt::format("(({:1f}, {:1f}), ({:1f}, {:1f}))", rectangle.TopLeft.x, rectangle.TopLeft.y, rectangle.BottomRight.x, rectangle.BottomRight.y);
+                    ImGui::Selectable(text.c_str(), &rectangle.Selected);
+
+                    // Check for movement
+                    if (ImGui::IsItemActive() && !ImGui::IsItemHovered())
+                    {
+                        float delta_y = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left).y;
+
+                        if (delta_y != 0.0f)
+                        {
+                            int next = idx + (delta_y < 0.0f ? -1 : 1);
+
+                            if (next >= 0 && next < m_Selections.size())
+                            {
+                                Rectangle r = std::move(m_Selections[idx]);
+
+                                m_Selections.erase(m_Selections.begin() + idx);
+                                m_Selections.insert(m_Selections.begin() + next, std::move(r));
+                            }
+                        }
+                    }
+
                     ImGui::PopID();
-                    continue;
                 }
 
-                ImGui::Separator();
-
-                ImGui::PopID();
-
-                it++;
+                ImGui::TreePop();
             }
-        }   
-    } 
+        }
+    }
 
     ImGui::End();
     // Workspace End
@@ -148,8 +163,16 @@ void ApplicationLayer::DrawRectangles(ImRect& inner_rect)
         ImVec2 p1 = { std::min(rect.TopLeft.x + win_pos.x - x_scroll, max_x), std::min(rect.TopLeft.y + win_pos.y - y_scroll, max_y) };
         ImVec2 p2 = { std::min(rect.BottomRight.x + win_pos.x - x_scroll, max_x), std::min(rect.BottomRight.y + win_pos.y - y_scroll, max_y) };
 
-        ImGui::GetForegroundDrawList()
-            ->AddRectFilled(p1, p2, ImColor(255, 0, 255, 60));
+        if (rect.Selected)
+        {
+            ImGui::GetForegroundDrawList()
+                ->AddRectFilled(p1, p2, ImColor(255, 0, 255, 60));
+        }
+        else
+        {
+            ImGui::GetForegroundDrawList()
+                ->AddRectFilled(p1, p2, ImColor(143, 143, 143, 160));
+        }
     }
 }
 
@@ -159,8 +182,8 @@ std::string ApplicationLayer::OpenImageFileDialog()
     NFD_Init();
 
     nfdu8char_t* file_path;
-    nfdu8filteritem_t filter[1] = {{"Image File", "jpg,jpeg,png"}};
-    nfdopendialogu8args_t args = {0};
+    nfdu8filteritem_t filter[1] = { {"Image File", "jpg,jpeg,png"} };
+    nfdopendialogu8args_t args = { 0 };
     args.filterList = filter;
     args.filterCount = 1;
     NFD_GetNativeWindowFromGLFWWindow(IB::Application::Get().GetWindowHandle(), &args.parentWindow);
@@ -186,11 +209,11 @@ void ApplicationLayer::CaptureRectangle()
     ImVec2 mouse_pos = ImGui::GetMousePos();
     ImVec2 win_pos = ImGui::GetCursorScreenPos();
 
-    ImVec2 target = {mouse_pos.x - win_pos.x, mouse_pos.y - win_pos.y};
+    ImVec2 target = { mouse_pos.x - win_pos.x, mouse_pos.y - win_pos.y };
 
     // Get the origin by removing the mouse difference
     ImVec2 move_mouse_diff = ImGui::GetMouseDragDelta(0);
-    ImVec2 origin = {target.x - move_mouse_diff.x, target.y - move_mouse_diff.y};
+    ImVec2 origin = { target.x - move_mouse_diff.x, target.y - move_mouse_diff.y };
 
     // Get top left and bottom right positions
 
@@ -207,11 +230,11 @@ void ApplicationLayer::CaptureRectangle()
     p2.x += x_scroll;
     p2.y += y_scroll;
 
-    m_Selections.emplace_back(Rectangle{p1, p2});
+    m_Selections.emplace_back(Rectangle{ p1, p2 });
 }
 
 bool IsInsideWindow(ImVec2& mouse, ImVec2& win_pos, ImVec2& size)
 {
     return mouse.x >= win_pos.x && mouse.x <= win_pos.x + size.x &&
-            mouse.y >= win_pos.y && mouse.y <= win_pos.y + size.y;
+        mouse.y >= win_pos.y && mouse.y <= win_pos.y + size.y;
 }

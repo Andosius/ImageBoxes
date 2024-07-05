@@ -26,6 +26,9 @@ set(IMGUI_FILES
 	Dependencies/imgui/backends/imgui_impl_glfw.cpp
 	Dependencies/imgui/backends/imgui_impl_opengl3.cpp)
 
+# Include fmt
+add_subdirectory(Dependencies/fmt)
+
 # Include GLFW
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -55,7 +58,7 @@ endif()
 # Generate executable program
 add_executable(${EXE_NAME} ${SOURCE_FILES} ${IMGUI_FILES})
 
-target_link_libraries(${EXE_NAME} PUBLIC glfw OpenGL::GL nfd)
+target_link_libraries(${EXE_NAME} PUBLIC glfw OpenGL::GL nfd fmt::fmt)
 
 # Set Visual Studio startup project
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${EXE_NAME})

@@ -13,6 +13,7 @@ struct Rectangle
 {
     ImVec2 TopLeft;
     ImVec2 BottomRight;
+    bool Selected = false;
 };
 
 
